@@ -1,0 +1,8 @@
+pre-commit:
+  commands:
+    format:
+      glob: "*.{ts,js,json}"
+      run: bun run format && git add {staged_files}
+    lint:
+      glob: "*.{ts,js,json}"
+      run: bun run lint
