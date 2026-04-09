@@ -26,8 +26,10 @@ export const DEFAULT_FUNCTION_PATTERNS: FunctionPattern[] = [
   { pattern: "zMutation", method: "MUTATION" },
   { pattern: "zPublicQuery", method: "QUERY", tags: ["public"] },
   { pattern: "zPublicMutation", method: "MUTATION", tags: ["public"] },
+  { pattern: "zAction", method: "ACTION" },
   { pattern: "zInternalQuery", method: "QUERY", tags: ["internal"] },
   { pattern: "zInternalMutation", method: "MUTATION", tags: ["internal"] },
+  { pattern: "zInternalAction", method: "ACTION", tags: ["internal"] },
 ];
 
 function buildRouteRegex(patterns: FunctionPattern[]): RegExp {

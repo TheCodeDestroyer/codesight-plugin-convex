@@ -71,14 +71,33 @@ describe("parseRoutes", () => {
       "zod.ts": `
         export const getUser = zQuery({ handler: async (ctx) => {} });
         export const updateUser = zMutation({ handler: async (ctx) => {} });
+        export const runJob = zAction({ handler: async (ctx) => {} });
       `,
     });
 
     try {
       const routes = parseRoutes(dir, root, "convex/route/", DEFAULT_FUNCTION_PATTERNS, [], []);
-      expect(routes).toHaveLength(2);
+      expect(routes).toHaveLength(3);
       expect(routes[0].method).toBe("QUERY");
       expect(routes[1].method).toBe("MUTATION");
+      expect(routes[2].method).toBe("ACTION");
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("detects zod internal action pattern", () => {
+    const { dir, root, cleanup } = withTempRoutes({
+      "internal.ts": `
+        export const sync = zInternalAction({ handler: async (ctx) => {} });
+      `,
+    });
+
+    try {
+      const routes = parseRoutes(dir, root, "convex/route/", DEFAULT_FUNCTION_PATTERNS, [], []);
+      expect(routes).toHaveLength(1);
+      expect(routes[0].method).toBe("ACTION");
+      expect(routes[0].tags).toContain("internal");
     } finally {
       cleanup();
     }

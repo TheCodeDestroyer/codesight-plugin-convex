@@ -70,10 +70,11 @@ export function parseSchemas(
 
   for (const file of files) {
     const content = readFile(file);
-    const tableRegex = /(?:export\s+)?const\s+(\w+)\s*=\s*defineTable\(\{/g;
+    // Match both `const usersTable = defineTable({` and `users: defineTable({`
+    const tableRegex = /(?:(?:export\s+)?const\s+(\w+)\s*=|(\w+)\s*:)\s*defineTable\(\{/g;
     let tableMatch: RegExpExecArray | null;
     while ((tableMatch = tableRegex.exec(content)) !== null) {
-      const tableName = tableMatch[1]!;
+      const tableName = (tableMatch[1] ?? tableMatch[2])!;
       const braceStart = content.indexOf("{", tableMatch.index + tableMatch[0].length - 1);
       const fieldsBlock = extractBalanced(content, braceStart, "{", "}");
       const fields = parseFields(fieldsBlock);
@@ -85,8 +86,17 @@ export function parseSchemas(
         }
       }
 
-      const afterTable = content.slice(braceStart + fieldsBlock.length + 2);
-      const indexMatches = [...afterTable.matchAll(/\.index\(['"](\w+)['"]/g)];
+      // Grab only the chained method calls after defineTable({...})
+      // Stop at the next blank line, semicolon, or new definition to avoid
+      // bleeding indexes from subsequent tables in the same file.
+      const afterTable = content
+        .slice(braceStart + fieldsBlock.length + 2)
+        .replace(/\/\/[^\n]*/g, "");
+      const chainMatch = afterTable.match(
+        /^[^;,\n]*(?:\s*\.(?:index|searchIndex)\([^)]*\)[^;,\n]*)*/,
+      );
+      const chainBlock = chainMatch?.[0] ?? "";
+      const indexMatches = [...chainBlock.matchAll(/\.(?:index|searchIndex)\(['"](\w+)['"]/g)];
       const relations = indexMatches.map((m) => `index:${m[1]}`);
 
       const cleanName = tableName

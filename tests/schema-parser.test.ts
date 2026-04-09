@@ -145,6 +145,89 @@ describe("parseSchemas", () => {
     }
   });
 
+  test("extracts inline schema syntax (key: defineTable)", () => {
+    const { file, cleanup } = withTempSchema(`
+      const schema = defineSchema({
+        users: defineTable({
+          name: v.string(),
+          email: v.string(),
+        }),
+        posts: defineTable({
+          title: v.string(),
+        }),
+      });
+    `);
+
+    try {
+      const schemas = parseSchemas([file], {}, []);
+      expect(schemas).toHaveLength(2);
+      expect(schemas[0].name).toBe("users");
+      expect(schemas[0].fields).toHaveLength(2);
+      expect(schemas[1].name).toBe("posts");
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("detects searchIndex as relation", () => {
+    const { file, cleanup } = withTempSchema(`
+      const postsTable = defineTable({
+        title: v.string(),
+        body: v.string(),
+      })
+        .index("by_author", ["authorId"])
+        .searchIndex("search_body", { searchField: "body" });
+    `);
+
+    try {
+      const schemas = parseSchemas([file], {}, []);
+      expect(schemas[0].relations).toEqual(["index:by_author", "index:search_body"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("detects indexes through inline comments", () => {
+    const { file, cleanup } = withTempSchema(`
+      const postsTable = defineTable({
+        title: v.string(),
+      })
+        // index docs
+        .index("by_author", ["authorId"])
+        // search index for full-text
+        .searchIndex("search_body", { searchField: "body" });
+    `);
+
+    try {
+      const schemas = parseSchemas([file], {}, []);
+      expect(schemas[0].relations).toEqual(["index:by_author", "index:search_body"]);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test("does not bleed indexes across multiple tables", () => {
+    const { file, cleanup } = withTempSchema(`
+      const usersTable = defineTable({
+        name: v.string(),
+      });
+      const postsTable = defineTable({
+        title: v.string(),
+      })
+        .index("by_author", ["authorId"]);
+    `);
+
+    try {
+      const schemas = parseSchemas([file], {}, []);
+      expect(schemas[0].name).toBe("users");
+      expect(schemas[0].relations).toEqual([]);
+      expect(schemas[1].name).toBe("posts");
+      expect(schemas[1].relations).toEqual(["index:by_author"]);
+    } finally {
+      cleanup();
+    }
+  });
+
   test("scans a directory of schema files", () => {
     const dir = mkdtempSync(join(tmpdir(), "schema-dir-test-"));
     writeFileSync(join(dir, "users.ts"), `const usersTable = defineTable({ name: v.string() });`);
